@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>MHBG-A350 — 猎人之旅</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #1a0f0a;
+  color: #f0e6d3;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+#app {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 8px 0;
+}
+
+/* ── BOSS PANEL ── */
+#boss-panel {
+  background: linear-gradient(135deg,#2a1208,#3d1b0d);
+  padding: 10px 14px 8px;
+  border-bottom: 2px solid #8b3a0f;
+}
+#boss-header { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+#boss-name { font-size:1.15rem; font-weight:700; color:#f5c842; }
+#boss-state-badge {
+  font-size:0.7rem; padding:2px 7px; border-radius:10px;
+  background:#8b3a0f; color:#fff; font-weight:700; letter-spacing:.05em;
+}
+#boss-emoji { font-size:1.6rem; }
+#boss-hp-bar-wrap { margin-bottom:4px; }
+#boss-hp-label { font-size:0.75rem; color:#ccc; margin-bottom:2px; }
+.hp-bar { height:12px; background:#331a0a; border-radius:6px; overflow:hidden; }
+.hp-fill { height:100%; background:linear-gradient(90deg,#e74c3c,#ff6b35); border-radius:6px; transition:width .4s; }
+#parts-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:5px; }
+.part-chip {
+  font-size:0.65rem; padding:2px 6px; border-radius:8px;
+  background:#2a1208; border:1px solid #6b3010; color:#ccc;
+  transition:all .3s;
+}
+.part-chip.broken { background:#4a0000; border-color:#ff4444; color:#ff8888; text-decoration:line-through; }
+.part-chip.targeted { border-color:#f5c842; color:#f5c842; }
+
+/* ── MONSTER VISUAL ── */
+#monster-visual {
+  text-align:center; padding:10px 0 4px;
+  background:linear-gradient(180deg,#200d05,#1a0f0a);
+  font-size:3.5rem; line-height:1;
+  min-height:80px; display:flex; align-items:center; justify-content:center;
+  flex-direction:column; gap:4px;
+}
+#monster-visual .status-text {
+  font-size:0.7rem; color:#aaa; letter-spacing:.1em;
+}
+#monster-action-preview {
+  text-align:center; font-size:0.72rem; color:#d4906a; padding:2px 0 4px;
+  min-height:18px; background:#1a0f0a;
+}
+
+/* ── BATTLEFIELD ── */
+#battlefield-section {
+  padding:6px 12px 4px;
+  background:#1a0f0a;
+}
+#battlefield-label { font-size:0.68rem; color:#888; margin-bottom:4px; text-align:center; }
+#grid {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:5px;
+  margin-bottom:4px;
+}
+.grid-cell {
+  aspect-ratio:1; border-radius:6px;
+  background:#2a1a10; border:2px solid #3d2510;
+  display:flex; align-items:center; justify-content:center;
+  flex-direction:column; gap:2px;
+  cursor:pointer; transition:all .2s; font-size:0.7rem; color:#888;
+  position:relative;
+}
+.grid-cell.player { background:#1a3a2a; border-color:#2ecc71; }
+.grid-cell.player::after { content:'⚔'; font-size:1.4rem; }
+.grid-cell.move-target { background:#0d2a1a; border-color:#27ae60; border-style:dashed; cursor:pointer; }
+.grid-cell.move-target:hover { background:#1a3a2a; }
+.grid-cell.in-attack-range { background:#2a2a0d; border-color:#888820; }
+.grid-cell.danger { background:#3a0d0d; border-color:#8b2020; }
+.grid-cell.danger.blink { animation:blink .4s 3; }
+@keyframes blink { 50%{background:#6a1010;border-color:#ff4444;} }
+.row-label { position:absolute; top:2px; left:4px; font-size:0.55rem; color:#666; }
+.cell-icon { font-size:1.4rem; }
+
+/* ── COMBAT LOG ── */
+#log-section {
+  flex:1; min-height:90px; max-height:130px;
+  overflow-y:auto; padding:5px 12px;
+  background:#120a06; border-top:1px solid #3d2510; border-bottom:1px solid #3d2510;
+}
+.log-entry { font-size:0.72rem; padding:2px 0; color:#ccc; border-bottom:1px solid #2a1a10; }
+.log-entry:last-child { border-bottom:none; }
+.log-player { color:#5dade2; }
+.log-monster { color:#e74c3c; }
+.log-system { color:#f5c842; font-style:italic; }
+.log-damage { color:#ff6b35; font-weight:700; }
+.log-part { color:#a29bfe; }
+.log-heal { color:#00b894; }
+.dice-row { display:inline-flex; gap:3px; }
+.die { display:inline-block; width:18px; height:18px; line-height:18px; text-align:center;
+  background:#333; border:1px solid #666; border-radius:3px; font-size:0.7rem; color:#f5c842; }
+
+/* ── PLAYER STATUS ── */
+#player-status {
+  padding:7px 14px 5px;
+  background:linear-gradient(135deg,#0d1a2a,#0a1220);
+  border-top:2px solid #0d4a7a;
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+}
+#player-hp-wrap { flex:1; min-width:120px; }
+#player-hp-label { font-size:0.68rem; color:#aaa; margin-bottom:2px; }
+#player-hp-fill { background:linear-gradient(90deg,#27ae60,#2ecc71); }
+#ap-display { display:flex; gap:4px; align-items:center; }
+.ap-dot {
+  width:14px; height:14px; border-radius:50%;
+  border:2px solid #4a90d9; background:#0d4a7a;
+  transition:all .2s;
+}
+.ap-dot.used { background:#1a2a3a; border-color:#2a4a6a; }
+#charge-display { display:flex; gap:3px; align-items:center; }
+.charge-pip {
+  width:14px; height:14px; border-radius:2px;
+  border:2px solid #f39c12; background:#2a1a00;
+  transition:all .3s;
+}
+.charge-pip.filled { background:#f39c12; box-shadow:0 0 6px #f39c12; }
+#status-badges { display:flex; gap:4px; }
+.status-badge {
+  font-size:0.6rem; padding:2px 5px; border-radius:8px;
+  background:#333; color:#aaa; border:1px solid #555;
+}
+.status-badge.move-limit { background:#4a2a00; color:#f5a623; border-color:#f5a623; }
+.status-badge.burn { background:#4a1a00; color:#ff6b35; border-color:#ff6b35; }
+
+/* ── ACTIONS ── */
+#action-section {
+  padding:6px 10px 4px;
+  background:#0d0d0d;
+}
+#phase-label {
+  font-size:0.75rem; text-align:center; color:#aaa; margin-bottom:5px;
+  font-weight:700; letter-spacing:.08em;
+}
+#action-grid {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-bottom:5px;
+}
+.action-btn {
+  padding:8px 4px; border-radius:7px; border:2px solid;
+  font-size:0.72rem; font-weight:700; cursor:pointer;
+  text-align:center; line-height:1.3; transition:all .15s;
+  background:transparent; color:#f0e6d3;
+  min-height:58px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:2px;
+}
+.action-btn:disabled { opacity:0.35; cursor:not-allowed; }
+.action-btn:not(:disabled):active { transform:scale(.95); }
+.action-btn .btn-icon { font-size:1.2rem; }
+.action-btn .btn-ap { font-size:0.6rem; color:#aaa; }
+
+.btn-move    { border-color:#27ae60; color:#2ecc71; }
+.btn-move:not(:disabled):hover    { background:#0d2a1a; }
+.btn-attack  { border-color:#e74c3c; color:#ff6b35; }
+.btn-attack:not(:disabled):hover  { background:#2a0d0d; }
+.btn-charge  { border-color:#f39c12; color:#f5c842; }
+.btn-charge:not(:disabled):hover  { background:#2a1a00; }
+.btn-special { border-color:#9b59b6; color:#c39bd3; }
+.btn-special:not(:disabled):hover { background:#1a0d2a; }
+.btn-end     { border-color:#7f8c8d; color:#bdc3c7; }
+.btn-end:not(:disabled):hover     { background:#1a1a1a; }
+.btn-cancel  { border-color:#e67e22; color:#f0a500; }
+
+#target-select {
+  display:none; padding:6px 0 2px;
+}
+#target-select.show { display:block; }
+#target-label { font-size:0.7rem; color:#aaa; margin-bottom:4px; text-align:center; }
+#target-btns { display:flex; gap:5px; flex-wrap:wrap; }
+.target-btn {
+  flex:1; padding:6px; border-radius:6px; border:1px solid #555;
+  font-size:0.68rem; cursor:pointer; background:#1a1a1a; color:#ccc;
+  text-align:center; transition:all .15s;
+}
+.target-btn:hover { background:#2a2a2a; }
+.target-btn.selected { border-color:#f5c842; background:#2a2000; color:#f5c842; }
+.target-btn:disabled { opacity:0.35; cursor:not-allowed; }
+
+/* ── RESULT OVERLAY ── */
+#result-overlay {
+  display:none; position:fixed; inset:0;
+  background:rgba(0,0,0,.85); z-index:100;
+  flex-direction:column; align-items:center; justify-content:center;
+  gap:16px; text-align:center; padding:20px;
+}
+#result-overlay.show { display:flex; }
+#result-title { font-size:2.5rem; font-weight:900; }
+#result-title.win { color:#f5c842; }
+#result-title.lose { color:#e74c3c; }
+#result-subtitle { font-size:1rem; color:#ccc; }
+#result-stats { font-size:0.85rem; color:#aaa; }
+#restart-btn {
+  padding:12px 32px; border-radius:10px; border:2px solid #f5c842;
+  background:#2a1a00; color:#f5c842; font-size:1rem; font-weight:700;
+  cursor:pointer; transition:all .2s;
+}
+#restart-btn:hover { background:#3a2800; }
+
+/* ── DICE ANIM ── */
+#dice-overlay {
+  display:none; position:fixed; inset:0; pointer-events:none;
+  align-items:center; justify-content:center; z-index:50;
+}
+#dice-overlay.show { display:flex; }
+#dice-result-box {
+  background:rgba(0,0,0,.9); border:2px solid #f5c842; border-radius:12px;
+  padding:16px 24px; text-align:center; animation:dice-pop .35s ease;
+}
+@keyframes dice-pop { from{transform:scale(.5);opacity:0;} to{transform:scale(1);opacity:1;} }
+#dice-roll-label { font-size:0.75rem; color:#aaa; margin-bottom:6px; }
+#dice-faces { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-bottom:6px; }
+.big-die {
+  width:32px; height:32px; line-height:32px; text-align:center;
+  background:#222; border:2px solid #f5c842; border-radius:5px;
+  font-size:1.1rem; font-weight:700; color:#f5c842;
+}
+#dice-total { font-size:1.5rem; font-weight:900; color:#ff6b35; }
+#dice-suffix { font-size:0.75rem; color:#aaa; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- BOSS PANEL -->
+  <div id="boss-panel">
+    <div id="boss-header">
+      <span id="boss-emoji">🐉</span>
+      <span id="boss-name">雄火龙</span>
+      <span id="boss-state-badge">普通</span>
+    </div>
+    <div id="boss-hp-bar-wrap">
+      <div id="boss-hp-label">HP: <span id="boss-hp-cur">80</span> / <span id="boss-hp-max">80</span></div>
+      <div class="hp-bar"><div class="hp-fill" id="boss-hp-fill" style="width:100%"></div></div>
+    </div>
+    <div id="parts-row">
+      <div class="part-chip" id="part-head">头部 <span id="head-hp">20</span></div>
+      <div class="part-chip" id="part-lwing">左翼 <span id="lwing-hp">15</span></div>
+      <div class="part-chip" id="part-rwing">右翼 <span id="rwing-hp">15</span></div>
+      <div class="part-chip" id="part-tail">尾部 <span id="tail-hp">20</span></div>
+    </div>
+  </div>
+
+  <!-- MONSTER VISUAL -->
+  <div id="monster-visual">
+    <div id="monster-emoji-big">🐉</div>
+    <div class="status-text" id="monster-status-text">普通状态</div>
+  </div>
+  <div id="monster-action-preview"></div>
+
+  <!-- BATTLEFIELD -->
+  <div id="battlefield-section">
+    <div id="battlefield-label">战场 — 点击绿色格子移动</div>
+    <div id="grid">
+      <!-- 3×3 cells: row 0 = near, row 1 = mid, row 2 = far -->
+    </div>
+  </div>
+
+  <!-- COMBAT LOG -->
+  <div id="log-section"></div>
+
+  <!-- PLAYER STATUS -->
+  <div id="player-status">
+    <div id="player-hp-wrap">
+      <div id="player-hp-label">猎人 HP: <span id="player-hp-cur">20</span> / 20</div>
+      <div class="hp-bar"><div class="hp-fill" id="player-hp-fill" style="width:100%;background:linear-gradient(90deg,#27ae60,#2ecc71)"></div></div>
+    </div>
+    <div>
+      <div style="font-size:0.65rem;color:#888;margin-bottom:3px;">AP</div>
+      <div id="ap-display"></div>
+    </div>
+    <div>
+      <div style="font-size:0.65rem;color:#888;margin-bottom:3px;">蓄力</div>
+      <div id="charge-display"></div>
+    </div>
+    <div id="status-badges"></div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div id="action-section">
+    <div id="phase-label">— 你的回合 —</div>
+    <div id="action-grid">
+      <button class="action-btn btn-move" id="btn-move" onclick="startMove()">
+        <span class="btn-icon">🦵</span>移动
+        <span class="btn-ap">1 AP / 格</span>
+      </button>
+      <button class="action-btn btn-attack" id="btn-縦斬り" onclick="startAttack('縦斬り')">
+        <span class="btn-icon">⚔️</span>縦斬り
+        <span class="btn-ap">1 AP · 2d6</span>
+      </button>
+      <button class="action-btn btn-attack" id="btn-横斬り" onclick="startAttack('横斬り')">
+        <span class="btn-icon">🗡️</span>横斬り
+        <span class="btn-ap">1 AP · 1d6+3</span>
+      </button>
+      <button class="action-btn btn-charge" id="btn-charge" onclick="doCharge()">
+        <span class="btn-icon">⚡</span>蓄力
+        <span class="btn-ap">1 AP · CL+1</span>
+      </button>
+      <button class="action-btn btn-special" id="btn-溜め斬り" onclick="startAttack('溜め斬り')">
+        <span class="btn-icon">🌀</span>溜め斬り
+        <span class="btn-ap">1 AP · CL≥1</span>
+      </button>
+      <button class="action-btn btn-special" id="btn-強溜め斬り" onclick="startAttack('強溜め斬り')">
+        <span class="btn-icon">💥</span>強溜め斬り
+        <span class="btn-ap">2 AP · CL≥2</span>
+      </button>
+      <button class="action-btn btn-special" id="btn-真溜め斬り" onclick="startAttack('真溜め斬り')">
+        <span class="btn-icon">✨</span>真・溜め斬り
+        <span class="btn-ap">3 AP · CL=3</span>
+      </button>
+      <button class="action-btn btn-attack" id="btn-踏込斬り" onclick="startAttack('踏込斬り')">
+        <span class="btn-icon">🏃</span>踏込斬り
+        <span class="btn-ap">2 AP · 前进+攻击</span>
+      </button>
+      <button class="action-btn btn-end" id="btn-end" onclick="endTurn()">
+        <span class="btn-icon">⏭️</span>结束回合
+        <span class="btn-ap">剩余AP→蓄力</span>
+      </button>
+    </div>
+    <div id="target-select">
+      <div id="target-label">选择攻击目标部位：</div>
+      <div id="target-btns"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- RESULT OVERLAY -->
+<div id="result-overlay">
+  <div id="result-title">...</div>
+  <div id="result-subtitle"></div>
+  <div id="result-stats"></div>
+  <button id="restart-btn" onclick="initGame()">再次挑战</button>
+</div>
+
+<!-- DICE OVERLAY -->
+<div id="dice-overlay">
+  <div id="dice-result-box">
+    <div id="dice-roll-label">掷骰结果</div>
+    <div id="dice-faces"></div>
+    <div id="dice-total">0</div>
+    <div id="dice-suffix"></div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════
+//  CONFIG
+// ════════════════════════════════
+const CFG = {
+  player: { maxHp: 20, maxAp: 3, maxCharge: 3, chargeMoveLimit: 1 },
+  monster: {
+    maxHp: 80,
+    angryThreshold: 48,   // HP ≤ this → angry
+    angryRageHit: 12,     // single turn dmg ≥ this → angry
+    parts: { head: 20, lwing: 15, rwing: 15, tail: 20 }
+  }
+};
+
+const SKILLS = {
+  '縦斬り':   { ap: 1, reqRow: 0, reqCl: 0, dice: ()=> 2,      displayName: '縦斬り' },
+  '横斬り':   { ap: 1, reqRow: 0, reqCl: 0, dice: ()=> 1, flatBonus: 3, displayName: '横斬り' }, // 1d6+3
+  '踏込斬り': { ap: 2, reqRow: 1, reqCl: 0, dice: ()=> 2,      isDash: true, displayName: '踏込斬り' },
+  '溜め斬り': { ap: 1, reqRow: 0, reqCl: 1, dice: (cl)=> 1+cl, consumes: 1, displayName: '溜め斬り' },
+  '強溜め斬り':{ ap: 2, reqRow: 0, reqCl: 2, dice: (cl)=> 2+cl, consumes: 2, displayName: '強溜め斬り' },
+  '真溜め斬り':{ ap: 3, reqRow: 0, reqCl: 3, dice: ()=> 7,     consumes: 3, stagger: true, displayName: '真・溜め斬り' },
+};
+
+// ════════════════════════════════
+//  STATE
+// ════════════════════════════════
+let G = {};
+
+function initGame() {
+  G = {
+    phase: 'player',
+    turn: 1,
+    player: {
+      hp: 20, maxHp: 20,
+      row: 1, col: 1,
+      ap: 3, usedAp: 0,
+      chargeLevel: 0,
+      movesThisTurn: 0,
+      burnTurns: 0,
+      quakeTurns: 0,
+    },
+    monster: {
+      hp: 80, maxHp: 80,
+      state: 'normal',
+      staggeredTurns: 0,
+      angerTurns: 0,
+      tiredTurns: 0,
+      flyingTurns: 0,
+      downedTurns: 0,
+      enragedOnce: false,
+      parts: {
+        head:  { hp: 20, maxHp: 20, broken: false },
+        lwing: { hp: 15, maxHp: 15, broken: false },
+        rwing: { hp: 15, maxHp: 15, broken: false },
+        tail:  { hp: 20, maxHp: 20, broken: false },
+      },
+    },
+    ui: { pendingMove: false, pendingSkill: null, pendingTarget: null },
+    log: [],
+    totalTurns: 0,
+  };
+  document.getElementById('result-overlay').classList.remove('show');
+  buildGrid();
+  log('🗡️ 雄火龙出现了！准备战斗！', 'system');
+  log('⚡ 大剑持有者 — 合理分配 AP，蓄力后释放爆发！', 'system');
+  render();
+}
+
+// ════════════════════════════════
+//  DICE
+// ════════════════════════════════
+function d6() { return Math.floor(Math.random()*6)+1; }
+function rollDice(n) { return Array.from({length:n},d6); }
+
+async function showDice(rolls, label, suffix) {
+  const overlay = document.getElementById('dice-overlay');
+  document.getElementById('dice-roll-label').textContent = label || '掷骰';
+  const facesEl = document.getElementById('dice-faces');
+  facesEl.innerHTML = rolls.map(v=>`<div class="big-die">${v}</div>`).join('');
+  document.getElementById('dice-total').textContent = rolls.reduce((a,b)=>a+b,0);
+  document.getElementById('dice-suffix').textContent = suffix || '';
+  overlay.classList.add('show');
+  await wait(900);
+  overlay.classList.remove('show');
+}
+
+function wait(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+// ════════════════════════════════
+//  LOGGING
+// ════════════════════════════════
+function log(msg, type='normal') {
+  G.log.unshift({ msg, type });
+  if (G.log.length > 60) G.log.pop();
+}
+function diceLog(rolls) {
+  const faces = rolls.map(v=>`<span class="die">${v}</span>`).join('');
+  return `<span class="dice-row">[${faces}]</span> = <span class="log-damage">${rolls.reduce((a,b)=>a+b,0)}</span>`;
+}
+
+// ════════════════════════════════
+//  PLAYER ACTIONS
+// ════════════════════════════════
+function canAct() { return G.phase === 'player'; }
+
+function apLeft() { return G.player.maxAp - G.player.usedAp; }
+
+function startMove() {
+  if (!canAct()) return;
+  if (apLeft() < 1) { log('AP 不足，无法移动。', 'system'); return; }
+  if (G.player.chargeLevel > 0 && G.player.movesThisTurn >= CFG.player.chargeMoveLimit) {
+    log(`⚡ 持有蓄力时，每回合最多移动 ${CFG.player.chargeMoveLimit} 格。`, 'system');
+    return;
+  }
+  G.ui.pendingMove = true;
+  G.ui.pendingSkill = null;
+  clearTargetSelect();
+  render();
+}
+
+function movePlayer(row, col) {
+  if (!G.ui.pendingMove) return;
+  const pr = G.player.row, pc = G.player.col;
+  if (Math.abs(row-pr) + Math.abs(col-pc) !== 1) return;
+  G.player.row = row;
+  G.player.col = col;
+  G.player.usedAp += 1;
+  G.player.movesThisTurn += 1;
+  G.ui.pendingMove = false;
+  const dist = ['近','中','远'][row] || row;
+  log(`🦵 移动至 [${dist}·列${col+1}]，消耗 1 AP。`, 'player');
+  checkEndCondition();
+  render();
+}
+
+function doCharge() {
+  if (!canAct()) return;
+  if (apLeft() < 1) { log('AP 不足，无法蓄力。', 'system'); return; }
+  if (G.player.chargeLevel >= 3) { log('蓄力已满（CL=3），无法继续。', 'system'); return; }
+  G.player.usedAp += 1;
+  G.player.chargeLevel += 1;
+  G.ui.pendingMove = false;
+  G.ui.pendingSkill = null;
+  clearTargetSelect();
+  log(`⚡ 蓄力！蓄力层数 → ${G.player.chargeLevel}。${G.player.chargeLevel>0?'移动受限（1格/回合）。':''}`, 'player');
+  render();
+}
+
+function startAttack(skill) {
+  if (!canAct()) return;
+  const s = SKILLS[skill];
+  if (!s) return;
+
+  if (apLeft() < s.ap) { log(`AP 不足 (需 ${s.ap})，无法使用 ${skill}。`, 'system'); return; }
+  if (G.player.row > s.reqRow) {
+    if (skill === '踏込斬り' && G.player.row <= 1) {
+      // ok, dash from row 1
+    } else {
+      log(`📏 距离不足！${skill} 需要在第 ${s.reqRow+1} 排（当前：第 ${G.player.row+1} 排）。`, 'system');
+      return;
+    }
+  }
+  if (G.player.chargeLevel < s.reqCl) {
+    log(`⚡ 蓄力不足！${skill} 需要 CL ≥ ${s.reqCl}（当前 CL=${G.player.chargeLevel}）。`, 'system');
+    return;
+  }
+
+  // Flying state melee restriction
+  if (G.monster.state === 'flying' && skill !== '踏込斬り') {
+    log('🌊 雄火龙在空中！近战无法命中，请等待落地。', 'system');
+    return;
+  }
+
+  G.ui.pendingSkill = skill;
+  G.ui.pendingMove = false;
+
+  // show target select
+  showTargetSelect(skill);
+  render();
+}
+
+function showTargetSelect(skill) {
+  const ts = document.getElementById('target-select');
+  const tb = document.getElementById('target-btns');
+  ts.classList.add('show');
+
+  const parts = G.monster.parts;
+  const targets = [
+    { key: 'body', label: '躯体' , available: true },
+    { key: 'head', label: `头部${parts.head.broken?'[已破]':''}`, available: !parts.head.broken },
+    { key: 'lwing',label: `左翼${parts.lwing.broken?'[已破]':''}`, available: !parts.lwing.broken },
+    { key: 'rwing',label: `右翼${parts.rwing.broken?'[已破]':''}`, available: !parts.rwing.broken },
+    { key: 'tail', label: `尾部${parts.tail.broken?'[已破]':''}`, available: !parts.tail.broken },
+  ];
+
+  tb.innerHTML = targets.map(t =>
+    `<button class="target-btn ${G.ui.pendingTarget===t.key?'selected':''}"
+      ${!t.available?'disabled':''} onclick="selectTarget('${t.key}')">${t.label}</button>`
+  ).join('');
+
+  // confirm button
+  tb.innerHTML += `<button class="target-btn" style="border-color:#e74c3c;color:#e74c3c;background:#2a0d0d;"
+    onclick="confirmAttack()">确认攻击 ✓</button>`;
+  tb.innerHTML += `<button class="target-btn" onclick="cancelAttack()">取消</button>`;
+}
+
+function selectTarget(key) {
+  G.ui.pendingTarget = key;
+  showTargetSelect(G.ui.pendingSkill);
+}
+
+async function confirmAttack() {
+  if (!G.ui.pendingSkill || !G.ui.pendingTarget) {
+    log('请先选择攻击目标部位。', 'system'); return;
+  }
+  const skill = G.ui.pendingSkill;
+  const target = G.ui.pendingTarget;
+  const s = SKILLS[skill];
+  const cl = G.player.chargeLevel;
+
+  // Dash attack: move player closer first
+  if (s.isDash && G.player.row > 0) {
+    G.player.row -= 1;
+    G.player.movesThisTurn += 1;
+    log(`🏃 踏み込み — 冲入第 ${G.player.row+1} 排！`, 'player');
+  }
+
+  // Roll dice
+  let numDice = s.dice(cl);
+  let rolls = rollDice(numDice);
+  let dmg = rolls.reduce((a,b)=>a+b,0);
+
+  // Flat damage modifier
+  if (s.flatBonus !== undefined) {
+    const flatRolls = rollDice(1);
+    dmg = flatRolls[0] + s.flatBonus;
+    rolls = flatRolls;
+  }
+
+  // Part damage modifier
+  let partMult = 1;
+  if (target === 'head' && !G.monster.parts.head.broken) partMult = 1.2;
+
+  const finalDmg = Math.max(1, Math.round(dmg * partMult));
+
+  // Consume charge
+  if (s.consumes) G.player.chargeLevel = Math.max(0, cl - s.consumes);
+
+  // Spend AP
+  G.player.usedAp += s.ap;
+
+  // Show dice
+  const skillLabel = s.displayName || skill;
+  await showDice(rolls,
+    `${skillLabel} (${numDice}d6)`,
+    target !== 'body' ? `×${partMult} = ${finalDmg} 伤害` : `= ${finalDmg} 伤害`
+  );
+
+  // Deal damage
+  dealDamageToMonster(finalDmg, target);
+
+  // Stagger
+  if (s.stagger) {
+    G.monster.staggeredTurns = 1;
+    log('✨ 真・溜め斬り 命中！雄火龙受到强力打击，下次行动延迟！', 'player');
+  }
+
+  // Log
+  const droll = diceLog(rolls);
+  log(`⚔️ ${skillLabel} → ${target === 'body' ? '躯体' : partLabel(target)} — ${droll}${partMult>1?' (弱点加成)':''} <span class="log-damage">${finalDmg} 伤害</span>`, 'player');
+
+  // Reset UI
+  G.ui.pendingSkill = null;
+  G.ui.pendingTarget = null;
+  clearTargetSelect();
+
+  checkMonsterStateTransition();
+  checkEndCondition();
+  render();
+}
+
+function cancelAttack() {
+  G.ui.pendingSkill = null;
+  G.ui.pendingTarget = null;
+  clearTargetSelect();
+  render();
+}
+
+function clearTargetSelect() {
+  document.getElementById('target-select').classList.remove('show');
+  document.getElementById('target-btns').innerHTML = '';
+}
+
+function partLabel(key) {
+  return {head:'头部',lwing:'左翼',rwing:'右翼',tail:'尾部',body:'躯体'}[key] || key;
+}
+
+// ════════════════════════════════
+//  END TURN / MONSTER TURN
+// ════════════════════════════════
+async function endTurn() {
+  if (!canAct()) return;
+  G.ui.pendingMove = false;
+  G.ui.pendingSkill = null;
+  G.ui.pendingTarget = null;
+  clearTargetSelect();
+
+  // Convert leftover AP to charge
+  const leftAp = apLeft();
+  if (leftAp > 0) {
+    const gain = Math.min(leftAp, CFG.player.maxCharge - G.player.chargeLevel);
+    if (gain > 0) {
+      G.player.chargeLevel = Math.min(3, G.player.chargeLevel + gain);
+      log(`⏭️ 回合结束 — 剩余 ${leftAp} AP 转化为蓄力层数 (+${gain})，当前 CL=${G.player.chargeLevel}。`, 'system');
+    } else {
+      log(`⏭️ 回合结束（蓄力已满，${leftAp} AP 浪费）。`, 'system');
+    }
+  } else {
+    log('⏭️ 回合结束。', 'system');
+  }
+
+  G.phase = 'monster';
+  G.totalTurns += 1;
+  render();
+  await wait(400);
+  await monsterTurn();
+}
+
+async function monsterTurn() {
+  G.phase = 'monster';
+  document.getElementById('phase-label').textContent = '— 雄火龙行动中 —';
+
+  const m = G.monster;
+
+  // Countdown stagger
+  if (m.staggeredTurns > 0) {
+    m.staggeredTurns -= 1;
+    log(`😵 雄火龙被硬直，跳过行动（剩余 ${m.staggeredTurns} 回合）。`, 'system');
+    await wait(500);
+    beginPlayerTurn();
+    return;
+  }
+
+  // Countdown downed
+  if (m.state === 'downed') {
+    m.downedTurns -= 1;
+    log(`💥 雄火龙倒地中（剩余 ${m.downedTurns} 回合）。`, 'system');
+    if (m.downedTurns <= 0) {
+      const nextState = m.hp <= m.maxHp * 0.6 ? 'angry' : 'normal';
+      setMonsterState(nextState);
+      log('雄火龙重新站立！', 'system');
+    }
+    await wait(500);
+    beginPlayerTurn();
+    return;
+  }
+
+  // Angry aura damage (row 0 players)
+  if (m.state === 'angry' && G.player.row === 0) {
+    dealDamageToPlayer(1, '怒气灼热');
+  }
+
+  // Burn DoT
+  if (G.player.burnTurns > 0) {
+    G.player.burnTurns -= 1;
+    dealDamageToPlayer(1, '灼烧持续伤害');
+  }
+  // Quake
+  if (G.player.quakeTurns > 0) {
+    G.player.quakeTurns -= 1;
+    // already applied, just tracking
+  }
+
+  // Get monster action based on state
+  const action = getMonsterAction();
+  document.getElementById('monster-action-preview').textContent = `⚡ ${action.name}！`;
+  await wait(600);
+
+  // Resolve
+  await resolveMonsterAction(action);
+
+  // State transitions
+  advanceMonsterState();
+
+  checkEndCondition();
+  if (G.phase !== 'win' && G.phase !== 'lose') {
+    beginPlayerTurn();
+  }
+}
+
+function getMonsterAction() {
+  const m = G.monster;
+  const roll = d6();
+
+  if (m.state === 'normal') {
+    if (roll <= 2) return { name:'火炎弾', roll, type:'fireball', dmg:4, col: Math.floor(Math.random()*3), allRows:true };
+    if (roll <= 4) return { name:'爪斬り', roll, type:'claw', dmg:5, rows:[0], col: Math.floor(Math.random()*3) };
+    if (roll === 5) return { name:'体当たり', roll, type:'slam', dmg:3, rows:[0,1], allCols:true };
+    return { name:'尾撃', roll, type:'tailswipe', dmg: m.parts.tail.broken ? 1 : 3, rows:[0], allCols:true };
+  }
+
+  if (m.state === 'angry') {
+    if (roll === 1) return { name:'強化火炎弾', roll, type:'fireball', dmg:6, col:Math.floor(Math.random()*3), allRows:true, burn:true };
+    if (roll <= 3) {
+      const c1 = Math.floor(Math.random()*3);
+      const c2 = (c1 + 1 + Math.floor(Math.random()*2)) % 3;
+      return { name:'連続火炎弾', roll, type:'multi_fireball', dmg:4, cols:[c1,c2], allRows:true };
+    }
+    if (roll === 4) return { name:'爪+噛み付き', roll, type:'combo', dmg1:4, dmg2:3, rows:[0], allCols:true };
+    if (roll === 5) return { name:'体当たり+旋回', roll, type:'slam', dmg:5, rows:[0,1], allCols:true };
+    return { name:'飛び掛かり', roll, type:'pounce', dmg:8, rows:[G.player.row], col:G.player.col };
+  }
+
+  if (m.state === 'flying') {
+    if (roll <= 3) return { name:'空中火炎弾', roll, type:'fireball', dmg:5, col:Math.floor(Math.random()*3), allRows:true };
+    if (roll <= 5) return { name:'急降下', roll, type:'dive', dmg:6, col:Math.floor(Math.random()*3), rows:[0,1] };
+    // Landing
+    return { name:'着地', roll, type:'land', dmg:3, rows:[0], allCols:true, quake:true };
+  }
+
+  if (m.state === 'tired') {
+    if (roll <= 3) return { name:'弱々しい爪攻撃', roll, type:'claw', dmg:2, rows:[0], col:Math.floor(Math.random()*3) };
+    if (roll <= 5) return { name:'弱体当たり', roll, type:'slam', dmg:2, rows:[0], allCols:true };
+    return { name:'疲弊休息', roll, type:'rest', dmg:0 };
+  }
+
+  return { name:'虎视眈眈', type:'wait', dmg:0 };
+}
+
+async function resolveMonsterAction(action) {
+  const p = G.player;
+
+  if (action.type === 'rest') {
+    G.monster.hp = Math.min(G.monster.maxHp, G.monster.hp + 1);
+    log('😮‍💨 雄火龙喘息休息，恢复 1 HP。', 'monster');
+    return;
+  }
+  if (action.type === 'wait') {
+    log('👀 雄火龙虎视眈眈…', 'monster');
+    return;
+  }
+  if (action.type === 'land') {
+    setMonsterState(G.monster.hp <= G.monster.maxHp * 0.6 ? 'angry' : 'normal');
+    log('💨 雄火龙着地！', 'system');
+  }
+
+  // Check if player is hit
+  let hit = false;
+  let dmg = action.dmg || 0;
+
+  if (action.type === 'multi_fireball') {
+    if (action.cols.includes(p.col)) { hit = true; dmg = action.dmg; }
+    else { log(`🔥🔥 連続火炎弾命中列 ${action.cols.map(c=>c+1).join('、')} — 你在列 ${p.col+1}，安全！`, 'monster'); }
+  } else if (action.type === 'combo') {
+    hit = checkHit(action);
+    if (hit) {
+      dealDamageToPlayer(action.dmg1, `${action.name}（爪）`);
+      await wait(300);
+      dmg = action.dmg2;
+    }
+  } else if (action.type === 'pounce') {
+    hit = p.row === action.rows[0] && p.col === action.col;
+  } else if (action.type === 'fireball' || action.type === 'dive') {
+    if (action.allRows) hit = p.col === action.col;
+    else hit = action.rows.includes(p.row) && p.col === action.col;
+  } else {
+    hit = checkHit(action);
+  }
+
+  if (hit && dmg > 0) {
+    if (action.burn) G.player.burnTurns = 1;
+    if (action.quake) { G.player.quakeTurns = 1; log('🌊 震地！下回合 AP 减少 1。', 'system'); }
+    dealDamageToPlayer(dmg, action.name);
+  } else if (!hit && action.type !== 'rest' && action.type !== 'wait' &&
+             action.type !== 'land' && action.type !== 'combo' && action.type !== 'multi_fireball') {
+    log(`💨 ${action.name} — 未命中你当前位置，安全！`, 'monster');
+  }
+}
+
+function checkHit(action) {
+  const p = G.player;
+  const rowHit = action.rows ? action.rows.includes(p.row) : true;
+  const colHit = action.allCols ? true : (action.col !== undefined ? p.col === action.col : true);
+  return rowHit && colHit;
+}
+
+function advanceMonsterState() {
+  const m = G.monster;
+
+  if (m.state === 'flying') {
+    m.flyingTurns -= 1;
+    if (m.flyingTurns <= 0) {
+      const ns = m.hp <= m.maxHp * 0.6 ? 'angry' : 'normal';
+      setMonsterState(ns);
+      log('雄火龙落地。', 'system');
+    }
+    return;
+  }
+
+  if (m.state === 'tired') {
+    m.tiredTurns -= 1;
+    if (m.tiredTurns <= 0) {
+      const ns = m.hp <= m.maxHp * 0.6 ? 'angry' : 'normal';
+      setMonsterState(ns);
+    }
+    return;
+  }
+
+  if (m.state === 'angry') {
+    m.angerTurns += 1;
+    // Chance to go flying if both wings are intact
+    if (!m.parts.lwing.broken && !m.parts.rwing.broken) {
+      if (d6() >= 5) {
+        setMonsterState('flying');
+        m.flyingTurns = 2 + (d6() > 4 ? 1 : 0);
+        return;
+      }
+    }
+    // Chance to tire
+    if (m.angerTurns >= 4 && d6() >= 4) {
+      setMonsterState('tired');
+      m.tiredTurns = 3;
+      return;
+    }
+  }
+}
+
+function setMonsterState(state) {
+  const old = G.monster.state;
+  G.monster.state = state;
+  if (state === 'angry' && old !== 'angry') {
+    G.monster.angerTurns = 0;
+    log('🔥 雄火龙进入怒り状态！攻击力大幅提升！', 'system');
+  } else if (state === 'tired') {
+    log('😮‍💨 雄火龙进入疲弊状态…动作迟缓。', 'system');
+  } else if (state === 'flying') {
+    log('🌊 雄火龙腾空飞起！近战武器无法命中！请蓄力等待落地。', 'system');
+  } else if (state === 'downed') {
+    G.monster.downedTurns = 2;
+    log('💥 雄火龙倒地！大好时机！', 'system');
+  } else if (state === 'normal') {
+    // nothing extra
+  }
+}
+
+function checkMonsterStateTransition() {
+  const m = G.monster;
+  if (m.state === 'downed' || m.state === 'flying') return;
+  if (m.hp <= m.maxHp * 0.6 && m.state !== 'angry' && m.state !== 'tired') {
+    setMonsterState('angry');
+  }
+}
+
+// ════════════════════════════════
+//  DAMAGE
+// ════════════════════════════════
+function dealDamageToMonster(dmg, partKey) {
+  const m = G.monster;
+
+  // Apply to total HP
+  const wasHp = m.hp;
+  m.hp = Math.max(0, m.hp - dmg);
+
+  // Apply to part HP
+  if (partKey && partKey !== 'body' && m.parts[partKey] && !m.parts[partKey].broken) {
+    m.parts[partKey].hp = Math.max(0, m.parts[partKey].hp - dmg);
+    if (m.parts[partKey].hp <= 0 && !m.parts[partKey].broken) {
+      m.parts[partKey].broken = true;
+      onPartBroken(partKey);
+    }
+  }
+
+  // Check if single-turn big damage triggers anger
+  if (dmg >= CFG.monster.angryRageHit && m.state === 'normal') {
+    setMonsterState('angry');
+  }
+
+  log(`💢 雄火龙受到 <span class="log-damage">${dmg}</span> 点伤害。HP: ${wasHp} → ${m.hp}`, 'player');
+}
+
+function onPartBroken(key) {
+  if (key === 'head') {
+    log('💫 头部击破！雄火龙发生晕眩，跳过下次行动！', 'part');
+    G.monster.staggeredTurns = 1;
+  } else if (key === 'tail') {
+    log('✂️ 尾部击断！尾扫伤害降低。', 'part');
+  } else if (key === 'lwing' || key === 'rwing') {
+    const other = key === 'lwing' ? 'rwing' : 'lwing';
+    log(`🦅 ${key === 'lwing'?'左翼':'右翼'}击破！`, 'part');
+    if (G.monster.parts[other].broken) {
+      log('🎉 双翼全部击破！雄火龙强制倒地！', 'system');
+      setMonsterState('downed');
+    }
+  }
+}
+
+function dealDamageToPlayer(dmg, source) {
+  // Quake reduces AP next turn (not here - applied at turn start)
+  const wasHp = G.player.hp;
+  G.player.hp = Math.max(0, G.player.hp - dmg);
+  log(`💥 你受到 <span class="log-damage">${dmg}</span> 点伤害（${source || '未知'}）。HP: ${wasHp} → ${G.player.hp}`, 'monster');
+}
+
+// ════════════════════════════════
+//  WIN / LOSE
+// ════════════════════════════════
+function checkEndCondition() {
+  if (G.monster.hp <= 0) {
+    G.phase = 'win';
+    document.getElementById('result-overlay').classList.add('show');
+    document.getElementById('result-title').className = 'win';
+    document.getElementById('result-title').textContent = '狩猎成功！';
+    document.getElementById('result-subtitle').textContent = '雄火龙已被击倒！';
+    document.getElementById('result-stats').textContent = `总回合数：${G.totalTurns + 1}`;
+    return;
+  }
+  if (G.player.hp <= 0) {
+    G.phase = 'lose';
+    document.getElementById('result-overlay').classList.add('show');
+    document.getElementById('result-title').className = 'lose';
+    document.getElementById('result-title').textContent = '力竭败退';
+    document.getElementById('result-subtitle').textContent = '被雄火龙击倒了…';
+    document.getElementById('result-stats').textContent = `坚持了 ${G.totalTurns + 1} 回合`;
+    return;
+  }
+}
+
+// ════════════════════════════════
+//  NEW PLAYER TURN
+// ════════════════════════════════
+function beginPlayerTurn() {
+  G.phase = 'player';
+  G.turn += 1;
+  G.player.usedAp = 0;
+  G.player.movesThisTurn = 0;
+  // Quake effect
+  if (G.player.quakeTurns > 0) {
+    G.player.maxAp = Math.max(1, CFG.player.maxAp - 1);
+    log('🌊 震地效果：本回合 AP 减少 1。', 'system');
+  } else {
+    G.player.maxAp = CFG.player.maxAp;
+  }
+  log(`━━ 回合 ${G.turn} ━━`, 'system');
+  render();
+}
+
+// ════════════════════════════════
+//  GRID
+// ════════════════════════════════
+function buildGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell';
+      cell.id = `cell-${r}-${c}`;
+      const rowName = ['近','中','远'][r];
+      cell.innerHTML = `<span class="row-label">${rowName}${c+1}</span>`;
+      cell.addEventListener('click', () => onCellClick(r, c));
+      grid.appendChild(cell);
+    }
+  }
+}
+
+function onCellClick(row, col) {
+  if (!G.ui.pendingMove) return;
+  movePlayer(row, col);
+}
+
+function updateGrid() {
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const cell = document.getElementById(`cell-${r}-${c}`);
+      cell.className = 'grid-cell';
+      cell.innerHTML = `<span class="row-label">${['近','中','远'][r]}${c+1}</span>`;
+
+      const isPlayer = r === G.player.row && c === G.player.col;
+      if (isPlayer) {
+        cell.classList.add('player');
+        continue;
+      }
+
+      const inMeleeRange = r === 0;
+      if (inMeleeRange) cell.classList.add('in-attack-range');
+
+      if (G.ui.pendingMove) {
+        const pr = G.player.row, pc = G.player.col;
+        const isAdjacent = Math.abs(r-pr) + Math.abs(c-pc) === 1;
+        if (isAdjacent) cell.classList.add('move-target');
+      }
+    }
+  }
+}
+
+// ════════════════════════════════
+//  RENDER
+// ════════════════════════════════
+function render() {
+  renderMonster();
+  updateGrid();
+  renderPlayer();
+  renderActions();
+  renderLog();
+}
+
+function renderMonster() {
+  const m = G.monster;
+  const stateMap = {
+    normal: { label:'普通', emoji:'🐉', text:'普通状态', color:'#aaa' },
+    angry:  { label:'怒り', emoji:'🔥🐉🔥', text:'怒り状态 — 攻击力大幅提升！', color:'#e74c3c' },
+    tired:  { label:'疲弊', emoji:'😮‍💨🐉', text:'疲弊状态 — 动作迟缓', color:'#95a5a6' },
+    flying: { label:'飞行', emoji:'🌊✈️🐉', text:'飞行状态 — 近战无法命中！', color:'#3498db' },
+    downed: { label:'倒地', emoji:'💥🐉', text:`倒地状态 — 绝好机会！(${m.downedTurns} 回合)`, color:'#f5c842' },
+  };
+  const st = stateMap[m.state] || stateMap.normal;
+
+  document.getElementById('boss-state-badge').textContent = st.label;
+  document.getElementById('boss-state-badge').style.background = st.color;
+  document.getElementById('monster-emoji-big').textContent = st.emoji;
+  document.getElementById('monster-status-text').textContent = st.text;
+
+  const hpPct = (m.hp / m.maxHp * 100).toFixed(1);
+  document.getElementById('boss-hp-cur').textContent = m.hp;
+  document.getElementById('boss-hp-fill').style.width = hpPct + '%';
+  // Color change based on HP
+  const hpColor = m.hp > m.maxHp*0.6 ? '#2ecc71' :
+                  m.hp > m.maxHp*0.3 ? '#f39c12' : '#e74c3c';
+  document.getElementById('boss-hp-fill').style.background = `linear-gradient(90deg,${hpColor},${hpColor}aa)`;
+
+  // Parts
+  for (const [key, pd] of Object.entries(m.parts)) {
+    const chip = document.getElementById(`part-${key}`);
+    if (!chip) continue;
+    const hpEl = chip.querySelector('span');
+    if (hpEl) hpEl.textContent = pd.broken ? '✗' : pd.hp;
+    if (pd.broken) chip.classList.add('broken');
+    else chip.classList.remove('broken');
+  }
+}
+
+function renderPlayer() {
+  const p = G.player;
+  const hpPct = (p.hp / p.maxHp * 100).toFixed(1);
+  document.getElementById('player-hp-cur').textContent = p.hp;
+  document.getElementById('player-hp-fill').style.width = hpPct + '%';
+
+  // AP dots
+  const apEl = document.getElementById('ap-display');
+  apEl.innerHTML = '';
+  for (let i = 0; i < p.maxAp; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'ap-dot' + (i < p.usedAp ? ' used' : '');
+    apEl.appendChild(dot);
+  }
+
+  // Charge pips
+  const chargeEl = document.getElementById('charge-display');
+  chargeEl.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const pip = document.createElement('div');
+    pip.className = 'charge-pip' + (i < p.chargeLevel ? ' filled' : '');
+    chargeEl.appendChild(pip);
+  }
+
+  // Status badges
+  const badgesEl = document.getElementById('status-badges');
+  badgesEl.innerHTML = '';
+  if (p.chargeLevel > 0) {
+    const b = document.createElement('div');
+    b.className = 'status-badge move-limit';
+    b.textContent = '移动受限';
+    badgesEl.appendChild(b);
+  }
+  if (p.burnTurns > 0) {
+    const b = document.createElement('div');
+    b.className = 'status-badge burn';
+    b.textContent = `灼烧 ${p.burnTurns}`;
+    badgesEl.appendChild(b);
+  }
+}
+
+function renderActions() {
+  if (G.phase !== 'player') {
+    document.getElementById('phase-label').textContent = '— 雄火龙行动中 —';
+    // disable all buttons
+    document.querySelectorAll('.action-btn').forEach(b => b.disabled = true);
+    return;
+  }
+
+  document.getElementById('phase-label').textContent = `— 你的回合 (AP: ${apLeft()}/${G.player.maxAp}) —`;
+  const p = G.player;
+  const cl = p.chargeLevel;
+  const ap = apLeft();
+  const row = p.row;
+  const flying = G.monster.state === 'flying';
+
+  const btns = {
+    'btn-move':        ap >= 1 && !(cl > 0 && p.movesThisTurn >= CFG.player.chargeMoveLimit),
+    'btn-縦斬り':       ap >= 1 && row === 0 && !flying,
+    'btn-横斬り':       ap >= 1 && row === 0 && !flying,
+    'btn-charge':       ap >= 1 && cl < 3,
+    'btn-溜め斬り':     ap >= 1 && row === 0 && cl >= 1 && !flying,
+    'btn-強溜め斬り':   ap >= 2 && row === 0 && cl >= 2 && !flying,
+    'btn-真溜め斬り':   ap >= 3 && row === 0 && cl === 3 && !flying,
+    'btn-踏込斬り':     ap >= 2 && row <= 1 && !flying,
+    'btn-end':          true,
+  };
+
+  for (const [id, enabled] of Object.entries(btns)) {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = !enabled;
+  }
+
+  // Update 溜め斬り label
+  const solBtn = document.getElementById('btn-溜め斬り');
+  if (solBtn && cl >= 1) {
+    solBtn.querySelector('.btn-ap').textContent = `1 AP · ${1+cl}d6 · CL≥1`;
+  }
+  const kyouBtn = document.getElementById('btn-強溜め斬り');
+  if (kyouBtn && cl >= 2) {
+    kyouBtn.querySelector('.btn-ap').textContent = `2 AP · ${2+cl}d6 · CL≥2`;
+  }
+}
+
+function renderLog() {
+  const logEl = document.getElementById('log-section');
+  logEl.innerHTML = G.log.slice(0, 25).map(entry => {
+    return `<div class="log-entry log-${entry.type}">${entry.msg}</div>`;
+  }).join('');
+}
+
+// ════════════════════════════════
+//  INIT
+// ════════════════════════════════
+initGame();
+</script>
+</body>
+</html>
