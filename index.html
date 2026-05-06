@@ -369,7 +369,7 @@ body {
 //  CONFIG
 // ════════════════════════════════
 const CFG = {
-  player: { maxHp: 20, maxAp: 3, maxCharge: 3 },
+  player: { maxHp: 20, maxAp: 3, maxCharge: 3, chargeMoveLimit: 1 },
   monster: {
     maxHp: 80,
     angryThreshold: 48,   // HP ≤ this → angry
@@ -379,12 +379,12 @@ const CFG = {
 };
 
 const SKILLS = {
-  '縦斬り':   { ap: 1, reqRow: 0, reqCl: 0, dice: (cl)=> 2 },
-  '横斬り':   { ap: 1, reqRow: 0, reqCl: 0, dice: (cl)=> 0, flat: 4 }, // 1d6+3
-  '踏込斬り': { ap: 2, reqRow: 1, reqCl: 0, dice: (cl)=> 2, isCharge: false, isDash: true },
-  '溜め斬り': { ap: 1, reqRow: 0, reqCl: 1, dice: (cl)=> 1+cl, consumes: 1 },
-  '強溜め斬り':{ ap: 2, reqRow: 0, reqCl: 2, dice: (cl)=> 2+cl, consumes: 2 },
-  '真溜め斬り':{ ap: 3, reqRow: 0, reqCl: 3, dice: (cl)=> 7,   consumes: 3, stagger: true },
+  '縦斬り':   { ap: 1, reqRow: 0, reqCl: 0, dice: ()=> 2,      displayName: '縦斬り' },
+  '横斬り':   { ap: 1, reqRow: 0, reqCl: 0, dice: ()=> 1, flatBonus: 3, displayName: '横斬り' }, // 1d6+3
+  '踏込斬り': { ap: 2, reqRow: 1, reqCl: 0, dice: ()=> 2,      isDash: true, displayName: '踏込斬り' },
+  '溜め斬り': { ap: 1, reqRow: 0, reqCl: 1, dice: (cl)=> 1+cl, consumes: 1, displayName: '溜め斬り' },
+  '強溜め斬り':{ ap: 2, reqRow: 0, reqCl: 2, dice: (cl)=> 2+cl, consumes: 2, displayName: '強溜め斬り' },
+  '真溜め斬り':{ ap: 3, reqRow: 0, reqCl: 3, dice: ()=> 7,     consumes: 3, stagger: true, displayName: '真・溜め斬り' },
 };
 
 // ════════════════════════════════
@@ -474,9 +474,8 @@ function apLeft() { return G.player.maxAp - G.player.usedAp; }
 function startMove() {
   if (!canAct()) return;
   if (apLeft() < 1) { log('AP 不足，无法移动。', 'system'); return; }
-  const cl = G.player.chargeLevel;
-  if (cl > 0 && G.player.movesThisTurn >= 1) {
-    log('⚡ 持有蓄力时，每回合最多移动 1 格。', 'system');
+  if (G.player.chargeLevel > 0 && G.player.movesThisTurn >= CFG.player.chargeMoveLimit) {
+    log(`⚡ 持有蓄力时，每回合最多移动 ${CFG.player.chargeMoveLimit} 格。`, 'system');
     return;
   }
   G.ui.pendingMove = true;
@@ -598,9 +597,9 @@ async function confirmAttack() {
   let dmg = rolls.reduce((a,b)=>a+b,0);
 
   // Flat damage modifier
-  if (s.flat) {
+  if (s.flatBonus !== undefined) {
     const flatRolls = rollDice(1);
-    dmg = flatRolls[0] + (s.flat - 1);
+    dmg = flatRolls[0] + s.flatBonus;
     rolls = flatRolls;
   }
 
@@ -617,7 +616,7 @@ async function confirmAttack() {
   G.player.usedAp += s.ap;
 
   // Show dice
-  const skillLabel = skill === '真溜め斬り' ? '真・溜め斬り' : skill;
+  const skillLabel = s.displayName || skill;
   await showDice(rolls,
     `${skillLabel} (${numDice}d6)`,
     target !== 'body' ? `×${partMult} = ${finalDmg} 伤害` : `= ${finalDmg} 伤害`
@@ -769,7 +768,8 @@ function getMonsterAction() {
   if (m.state === 'angry') {
     if (roll === 1) return { name:'強化火炎弾', roll, type:'fireball', dmg:6, col:Math.floor(Math.random()*3), allRows:true, burn:true };
     if (roll <= 3) {
-      const c1=Math.floor(Math.random()*3), c2=(c1+1+Math.floor(Math.random()*2))%3;
+      const c1 = Math.floor(Math.random()*3);
+      const c2 = (c1 + 1 + Math.floor(Math.random()*2)) % 3;
       return { name:'連続火炎弾', roll, type:'multi_fireball', dmg:4, cols:[c1,c2], allRows:true };
     }
     if (roll === 4) return { name:'爪+噛み付き', roll, type:'combo', dmg1:4, dmg2:3, rows:[0], allCols:true };
@@ -874,8 +874,8 @@ function advanceMonsterState() {
 
   if (m.state === 'angry') {
     m.angerTurns += 1;
-    // Chance to go flying if wings intact
-    if (!m.parts.lwing.broken || !m.parts.rwing.broken) {
+    // Chance to go flying if both wings are intact
+    if (!m.parts.lwing.broken && !m.parts.rwing.broken) {
       if (d6() >= 5) {
         setMonsterState('flying');
         m.flyingTurns = 2 + (d6() > 4 ? 1 : 0);
@@ -1162,7 +1162,7 @@ function renderActions() {
   const flying = G.monster.state === 'flying';
 
   const btns = {
-    'btn-move':        ap >= 1 && !(cl > 0 && p.movesThisTurn >= 1),
+    'btn-move':        ap >= 1 && !(cl > 0 && p.movesThisTurn >= CFG.player.chargeMoveLimit),
     'btn-縦斬り':       ap >= 1 && row === 0 && !flying,
     'btn-横斬り':       ap >= 1 && row === 0 && !flying,
     'btn-charge':       ap >= 1 && cl < 3,
